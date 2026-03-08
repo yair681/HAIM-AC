@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת תכנון 1.4 - 8.4 - ייצוא לתמונה</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* כותרות דביקות לגלילה נוחה */
+        th { position: sticky; top: 0; z-index: 10; }
+        td:first-child { position: sticky; right: 0; z-index: 5; }
+        th:first-child { z-index: 15; }
+        
+        /* התאמת פס הגלילה */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen p-4 md:p-8">
+
+    <div id="captureArea" class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
+        
+        <div class="bg-slate-800 text-white p-6 text-center">
+            <h1 class="text-2xl font-bold">מערכת תכנון שעות: 1.4 עד 8.4</h1>
+            <p class="text-slate-300 mt-2 text-sm">הנתונים נשמרים אוטומטית בדפדפן. שעות פעילות: 11:00 עד 23:00</p>
+        </div>
+
+        <div id="toolbar" class="p-4 bg-slate-100 border-b border-slate-200 flex flex-wrap gap-4 justify-center md:justify-start">
+            <button onclick="exportToImage()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                ייצא כתמונה (PNG)
+            </button>
+            <button onclick="clearAllData()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-semibold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                נקה נתונים
+            </button>
+        </div>
+
+        <div class="overflow-x-auto max-h-[70vh]">
+            <table id="scheduleTable" class="w-full text-sm text-right border-collapse whitespace-nowrap">
+                <thead class="bg-slate-700 text-white">
+                    <tr id="tableHeader">
+                        <th class="p-4 border border-slate-600 bg-slate-800 font-semibold w-24">שעה / תאריך</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="divide-y divide-slate-200">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const dates = ['1.4', '2.4', '3.4', '4.4', '5.4', '6.4', '7.4', '8.4'];
+        const startHour = 11;
+        const endHour = 23;
+        const STORAGE_KEY = 'scheduleData_1_4_to_8_4';
+
+        let scheduleData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+        function initTable() {
+            const headerRow = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+
+            dates.forEach(date => {
+                const th = document.createElement('th');
+                th.className = "p-4 border border-slate-600 font-semibold text-center min-w-[150px]";
+                th.innerText = date;
+                headerRow.appendChild(th);
+            });
+
+            for (let hour = startHour; hour <= endHour; hour++) {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                
+                const tdHour = document.createElement('td');
+                tdHour.className = "p-3 border border-slate-200 bg-slate-100 font-bold text-center text-slate-700";
+                tdHour.innerText = `${hour}:00`;
+                tr.appendChild(tdHour);
+
+                dates.forEach(date => {
+                    const td = document.createElement('td');
+                    td.className = "p-2 border border-slate-200 bg-white";
+                    
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = "w-full p-2 border border-transparent focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded outline-none transition-all text-sm bg-transparent hover:bg-slate-50 focus:bg-white";
+                    input.placeholder = "הזן משימה...";
+                    
+                    const cellId = `cell-${date}-${hour}`;
+                    input.id = cellId;
+                    
+                    if (scheduleData[cellId]) {
+                        input.value = scheduleData[cellId];
+                    }
+
+                    input.addEventListener('input', (e) => {
+                        scheduleData[cellId] = e.target.value;
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(scheduleData));
+                    });
+
+                    td.appendChild(input);
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            }
+        }
+
+        // ייצוא לתמונה באמצעות ציור ישיר על Canvas
+        function exportToImage() {
+            const scale = 2;
+            const colWidth = 160;
+            const hourColWidth = 90;
+            const rowHeight = 48;
+            const headerHeight = 56;
+            const titleHeight = 90;
+
+            const allCols = [hourColWidth, ...dates.map(() => colWidth)];
+            const totalWidth = allCols.reduce((a, b) => a + b, 0);
+            const numRows = (endHour - startHour + 1);
+            const totalHeight = titleHeight + headerHeight + numRows * rowHeight;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = totalWidth * scale;
+            canvas.height = totalHeight * scale;
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+
+            // --- כותרת ---
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, totalWidth, titleHeight);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('מערכת תכנון שעות: 1.4 עד 8.4', totalWidth / 2, 32);
+            ctx.font = '13px Arial';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('שעות פעילות: 11:00 עד 23:00', totalWidth / 2, 62);
+
+            // --- כותרת עמודות ---
+            let x = 0;
+            const headerCols = ['שעה / תאריך', ...dates];
+            headerCols.forEach((label, i) => {
+                const w = allCols[i];
+                ctx.fillStyle = i === 0 ? '#0f172a' : '#334155';
+                ctx.fillRect(x, titleHeight, w, headerHeight);
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, titleHeight, w, headerHeight);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, x + w / 2, titleHeight + headerHeight / 2);
+                x += w;
+            });
+
+            // --- שורות הטבלה ---
+            for (let r = 0; r < numRows; r++) {
+                const hour = startHour + r;
+                const y = titleHeight + headerHeight + r * rowHeight;
+                x = 0;
+
+                // עמודת שעה
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fillRect(x, y, hourColWidth, rowHeight);
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, hourColWidth, rowHeight);
+                ctx.fillStyle = '#334155';
+                ctx.font = 'bold 13px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${hour}:00`, x + hourColWidth / 2, y + rowHeight / 2);
+                x += hourColWidth;
+
+                // עמודות תאריכים
+                dates.forEach(date => {
+                    const cellId = `cell-${date}-${hour}`;
+                    const val = scheduleData[cellId] || '';
+                    ctx.fillStyle = r % 2 === 0 ? '#ffffff' : '#f8fafc';
+                    ctx.fillRect(x, y, colWidth, rowHeight);
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, colWidth, rowHeight);
+                    if (val) {
+                        ctx.fillStyle = '#1e293b';
+                        ctx.font = '13px Arial';
+                        ctx.textAlign = 'right';
+                        ctx.textBaseline = 'middle';
+                        // חיתוך טקסט ארוך
+                        let text = val;
+                        while (ctx.measureText(text).width > colWidth - 16 && text.length > 1) {
+                            text = text.slice(0, -1);
+                        }
+                        if (text !== val) text += '…';
+                        ctx.fillText(text, x + colWidth - 10, y + rowHeight / 2);
+                    }
+                    x += colWidth;
+                });
+            }
+
+            // הורדה
+            const link = document.createElement('a');
+            const now = new Date();
+            link.download = `מערכת_שעות_${now.getDate()}_${now.getMonth()+1}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function clearAllData() {
+            if(confirm("האם אתה בטוח שברצונך למחוק את כל הנתונים?")) {
+                scheduleData = {};
+                localStorage.removeItem(STORAGE_KEY);
+                const inputs = document.querySelectorAll('#scheduleTable input');
+                inputs.forEach(input => input.value = '');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initTable);
+    </script>
+</body>
+</html>
